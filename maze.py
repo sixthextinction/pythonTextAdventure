@@ -40,7 +40,7 @@ roomDescription =   {
                                             The unbroken, smooth stone floor is back, and you sigh in relief. You peer around carefully, but there are no enemies in sight.
                                             This seems an exceptionally ordinary room. The wall to your left has a brick outcropping, but that's to be expected in some place as old as this, right? 
 
-                                            There seems to be nothing here but another sconce lighting the way round a corner; another corridor to the north.
+                                            There seems to be nothing here but another sconce lighting the way round a corner; another corridor to the northwest.
                                             """,
                         "corridor3" :       """
                                             Another long, boring corridor. 
@@ -55,25 +55,23 @@ roomDescription =   {
                                             Whatever it is, it lies to the east. 
                                             """,
                         "corridor5" :       """
-                                            Yet another corridor. You're finally begin to appreciate the architectural genius of this place. You're now certain of how easy it is to get lost here, roaming forever.
-                                            Good thing you have a map. You do have a map, right?
-                                            Your thoughts are interruted by guttural, inhuman moaning echoing down the stone halls. Flickering shadows on the walls ahead. Bad news.
+                                            The coast is clear.
 
-                                            Whatever it is, it lies to the east. 
+                                            There's a low ceilinged hallway to the south. 
                                             """,
                         "corridor6" :       """
                                             You can't believe your eyes. Daylight to the west. Filtering in through the widest gate you've seen here so far.
                                             These halls are wider than any other in this place. You check around for danger, but there seems to be none apparent.
                                             Home stretch.
 
-                                            Your ticket out of here is to the west. 
+                                            Your ticket out of here is to the west, though your attention is drawn to another diagonal tunnel to the northwest. An evil permeates that tunnel. 
                                             """,
                         "treasureRoom" :    """
                                             The Guardian stands here in this bloody room, among bones and discarded gear of heroes past, a dozen arms tall, metal plates intertwining with chains, dirty leather hood hiding his grotesque visage.
                                             He has been waiting for you. He grins, bare, bloody teeth and all, as he picks up his greatsword. 
                                             A key hangs from a hook on the wall behind him.
 
-                                            Are you prepared? There is no exit. 
+                                            Are you prepared? There is no exit except back out, southeast, should you want to regroup. 
                                             """,
                         "trapRoom" :        """
                                             Dark. No sconces. No magelight. The darkness here is thick and suffocating. A different animal altogether. It's an oily ooze, pervading in the air.
@@ -84,6 +82,11 @@ roomDescription =   {
 
                                             The door behind you is barred, through sorcery or otherwise, you could not care less. No escape that way.
                                             There is an exit to the northeast, if you can make it there.
+                                            """,
+                        "deadEndRoom" :     """
+                                            Dead end. 
+
+                                            Or is it? There's a draft coming from the south. From...soild wall?
                                             """
                     }
 #associative array to do objectDescription(objectID)
@@ -105,6 +108,8 @@ objectDescription = {
                         "exitKey"           :   "The key to your freedom hangs there, glittering in the magelight, as it has for the past few hundred years. Is there a way to get to it, dodging the Guardian?"
                     }
 
+directionsList = [ "north", "northwest", "west", "southwest", "south", "southeast", "east", "northeast" ]
+
 playerHP = 100  #HP
 playerGP = 0    #Gold
 
@@ -114,7 +119,80 @@ perceptionCheck = False #default, resets for each room
 prompt = "What do you do? > "
 ########################################################################################
 def goToRoom(origin, direction):
-    print ""
+    #simple implementation for now...
+    #--------------------------------------------
+    if (origin == "startRoom"):
+        if(direction == "northwest"):
+            return "trapRoom"
+        elif(direction == "east"):
+            return "entranceCorridor"
+        else:
+            return "NaD"#not a direction, ala NaN
+    #--------------------------------------------
+    elif (origin == "trapRoom"):
+        if(direction == "northeast"):
+            return "deadEndRoom"
+        else:
+            return "NaD"
+    #--------------------------------------------
+    elif (origin == "deadEndRoom"):
+        if(direction == "south"):
+            return "entranceCorridor"
+        else:
+            return "NaD"
+    #--------------------------------------------
+    elif (origin == "entranceCorridor"):
+        if (direction == "south"):
+            return "corridor1"
+        else:
+            return "NaD"
+    #--------------------------------------------
+    elif (origin == "corridor1"):
+        if (direction == "west"):
+            return "corridor2"
+        else:
+            return "NaD"
+    #--------------------------------------------
+    elif (origin == "corridor2"):
+        if (direction == "northwest"):
+            return "corridor3"
+        elif (direction == "west"):
+            return "corridor4"
+        else:
+            return "NaD"
+    #--------------------------------------------
+    elif (origin == "corridor3"):
+        if (direction == "northeast"):
+            return "corridor2"
+        else:
+            return "NaD"
+    #--------------------------------------------
+    elif (origin == "corridor4"):
+        if (direction == "east"):
+            return "corridor5"
+        else:
+            return "NaD"
+    #--------------------------------------------
+    elif (origin == "corridor5"):
+        if (direction == "south"):
+            return "corridor6"
+        else:
+            return "NaD"
+    #--------------------------------------------
+    elif (origin == "corridor6"):
+        if (direction == "northwest"):
+            return "treasureRoom"
+        else:
+            return "NaD"
+    #--------------------------------------------
+    elif (origin == "treasureRoom"):
+        if (direction == "southeast"):
+            return "corridor6"
+        else:
+            return "NaD"
+    #--------------------------------------------
+    else:
+        return "idunnolol"
 ########################################################################################
 def die(why):
     print " %s Well done!" % why
@@ -155,6 +233,18 @@ def coreGameLoop(roomName, includeDescription, treasureObtained):
     #player wants to examine the room        
     elif playerChoice == "examine room" or playerChoice == "look around" or playerChoice == "look at room":
         coreGameLoop(roomName, True, False)
+    #go in directions
+    #elif "north" in playerChoice or "east" in playerChoice or "south" in playerChoice or "west" in playerChoice:
+    elif playerChoice in directionsList:
+        goTo = goToRoom(roomName, playerChoice)
+        if goTo == "NaD":
+            print "You cannot go in that direction."
+            coreGameLoop(roomName, True, False)
+        else:
+            #do perceptionCheck etc. processing here:
+            #perceptionCheck blabla
+            coreGameLoop(goTo, True, False)
+        
     #could not parse player's intent
     else:
         print "I don't understand that."
