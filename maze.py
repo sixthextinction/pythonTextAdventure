@@ -11,9 +11,16 @@ roomHasTreasure =   {
                         "corridor6" : 50,
                         "treasureRoom" : 200
                     }
+roomHasMonsters =   {
+                        "trapRoom"      :   "skeletons",
+                        "corridor5"     :   "zombie",
+                        "treasureRoom"  :   "guardianBoss"
+                    }
+#rooms which need percept checks
 
-#associative array to do roomDescription['roomName'] later
-roomDescription =   {
+#associative array to hold object/room descriptions : 
+#rooms first
+objectDescription = {
                         "startRoom" :       """
                                             Smooth, slippery stone. Superior, if spartan.
                                             Dust and cobwebs populate this room. 
@@ -55,7 +62,7 @@ roomDescription =   {
                                             Whatever it is, it lies to the east. 
                                             """,
                         "corridor5" :       """
-                                            The coast is clear.
+                                            The shambling corpse walks towards you.
 
                                             There's a low ceilinged hallway to the south. 
                                             """,
@@ -86,11 +93,11 @@ roomDescription =   {
                         "deadEndRoom" :     """
                                             Dead end. 
 
-                                            Or is it? There's a draft coming from the south. From...soild wall?
-                                            """
-                    }
-#associative array to do objectDescription(objectID)
-objectDescription = {
+                                            Or is it nearly as grim? There's a draft coming from the south. From...solid wall?
+                                            """,
+                    
+#now objects :
+
                         "suspiciousDoor"    :  """
                                             You peer at the door, and notice nothing different. You start to give it a gentle push...
                                             ...and immediately shrink back.
@@ -99,17 +106,38 @@ objectDescription = {
                                             Whatever you have done, seems to have defused the trap.
                                             """,
                         "treasureChest"     :   "Just your everyday large wood-and-metal chest. You can unlock this.",
-                        "suspiciousTiles"   :   "Your perceptive nature pays off. The unnatural tile architecture hides a pressure trap. You disarm it. Close shave.",
-                        "brickOutcropping"  :   "You run your hand across the outcropping, and discover one of the bricks is loose! Pulling on it reveals a secret passage!",
+                        "suspiciousTile"    :   "Your perceptive nature pays off. The unnatural tile architecture hides a pressure trap. You disarm it. Close shave.",
+                        "brickOutcropping"  :   "You run your hand across the outcropping, and discover one of the bricks is loose! Pulling on it reveals a secret passage to the west!",
                         "corridor3Gate"     :   "Just your regular everyday metal gate. Which is also, unfortunately, of the locked variety. The lock has long since eroded away, to boot. Drat.",
                         "zombie"            :   "Ghastly un-life stares back at you through maggot infested eyesockets. A mass of rotten flesh, loose coils of intestine, and jagged teeth, shambling towards you, inch by fatal inch. ",
                         "exitGate"          :   "Large, barred gates. Comically oversized chains and a lock fasten it securely in place. It's locked, needless to say. You need a key to get out of here.",
                         "guardianBoss"      :   "A towering mound of interlocking black metal plates and the biggest greatsword you've ever seen (har har). You can make out a hint of his black eyes and slathering fangs under that leather hood, pulled down low.",
-                        "exitKey"           :   "The key to your freedom hangs there, glittering in the magelight, as it has for the past few hundred years. Is there a way to get to it, dodging the Guardian?"
+                        "exitKey"           :   "The key to your freedom hangs there, glittering in the magelight, as it has for the past few hundred years. Is there a way to get to it, dodging the Guardian?",
+                        "skeleton"          :   "A reanimated soldier, moldy bones held together by some unholy magic. It carries a curved sword, and the red misty glow in its otherwise empty orbits, hungers for your blood."
                     }
 
 directionsList = [ "north", "northwest", "west", "southwest", "south", "southeast", "east", "northeast" ]
 
+monstersList   =    [ "skeleton", "zombie", "guardian", "boss" ]
+
+subjectToGameObjectMap =    { #only covers mappings that can have a 1:1 resolution. "room" can't, as it can have multiple versions depending on roomName. Resolve that elsewhere.
+                            "chest"         :   "treasureChest",
+                            "treasure"      :   "treasureChest",
+                            "tile"          :   "suspiciousTile",
+                            "tiles"         :   "suspiciousTile",
+                            "zombie"        :   "zombie",#redundant?
+                            "guardian"      :   "guardianBoss",
+                            "boss"          :   "guardianBoss",
+                            "key"           :   "exitKey",
+                            "skeleton"      :   "skeleton"#redundant?
+                            }
+subjectToRoomMap =  {
+                        "skeleton"  :   "trapRoom",
+                        "zombie"    :   "corridor5",
+                        "boss"      :   "treasureRoom",
+                        "guardian"  :   "treasureRoom",
+                        "key"       :   "treasureRoom"
+                    }
 playerHP = 100  #HP
 playerGP = 0    #Gold
 
@@ -201,16 +229,69 @@ def die(why):
 def dangerAlert():
     print "Careful. Something sinister lurks here...\n"
 ########################################################################################
+def getAltDescription(roomName):
+    return "Alternate %r description here." % roomName
+########################################################################################
+def isMonster(subject):
+    if subject in monstersList:
+        return True
+    else:
+        return False
+########################################################################################
+def mapSubjectToGameObject(subject, roomName):
+    # print "*** DEBUG : subject %s in subjectToGameObjectMap? : %r" % (subject, subject in subjectToGameObjectMap)
+    # print "*** DEBUG : Again, manually this time. ""guardian"" in subjectToGameObjectMap? : %r" % ("guardian" in subjectToGameObjectMap)
+    # print "*** DEBUG : Wtf? Ok. Try this : subjectToGameObjectMap[guardian] : %s" % (subjectToGameObjectMap["guardian"])
+    # print "*** DEBUG : Alright, getting somewhere. subject == <space>guardian? %r : " % (subject == " guardian")
+    # print "*** DEBUG : Almost there. subject == guardian? %r : " % (subject == "guardian")
+
+    #there's the problem. A rogue whitespace just before the subject string.
+    #lets fix that :
+    #subject = subject.lstrip() #remove leading whitespaces (empty array passed)
+
+    #prevent examining gameObjects not in the room the player is currently in.
+    # Do this by maintaining an associative array. 
+    #ex. subjectToRoomMap = { "skeleton" : "trapRoom", "zombie" : "corridor5"} and so on.
+    #only if subjectToRoomMap["skeleton"] == roomName, return subjectToGameObjectMap[subject]
+
+    if subject in subjectToGameObjectMap and subjectToRoomMap[subject] == roomName:
+            # print "*** DEBUG : subject : %s" % subject
+            # print "*** DEBUG : roomName : %s" % roomName
+            # print "*** DEBUG : mapSubjectToGameObject() returning : %s" % subjectToGameObjectMap[subject]
+            return subjectToGameObjectMap[subject]
+    elif subject == "room":
+        # print "*** DEBUG : subject : %s" % subject
+        # print "*** DEBUG : roomName : %s" % roomName
+        # print "*** DEBUG : mapSubjectToGameObject() returning : %s" % objectDescription[roomName]
+        return objectDescription[roomName]
+    else:
+        # print "*** DEBUG : subject : %s" % subject
+        # print "*** DEBUG : roomName : %s" % roomName
+        # print "*** DEBUG : mapSubjectToGameObject() returning : NaO" 
+        return "NaO" #not an examinable subject. An errorcode, basically, like NaD.
+########################################################################################
 def coreGameLoop(roomName, includeDescription, treasureObtained):
     treasurePresent = False
 
+    print "You are in : %s" % roomName
+
     if (includeDescription):
-        print roomDescription[roomName]
+        if (perceptionCheck == True):
+            print getAltDescription(roomName)
+        else:
+            print objectDescription[roomName]
     if (roomName in roomHasTreasure) and (treasureObtained == False):
         treasurePresent = True
         print "There's a treasure chest here."
 
     playerChoice = raw_input(prompt)
+
+    #SUGGESTION : More efficient action processing system 
+    #   action  = playerChoice[0:playerChoice.find(" ")]    //substring until a space 
+    #   subject = playerChoice[playerChoice.find(" "):]     //substring from space til end for the object being referred to
+    #   if action in list_of_valid_actions:                //check if its a valid action
+    #       send off object for processing
+    # ^^^ maybe like so?
 
     #player wants to do something with the treasure chest :
     if ("chest" in playerChoice or "treasure" in playerChoice) and treasurePresent == True:
@@ -230,20 +311,100 @@ def coreGameLoop(roomName, includeDescription, treasureObtained):
         else:
             print "I don't know what you mean to do with the treasure chest."
             coreGameLoop(roomName, False, False)
+
     #player wants to examine the room        
     elif playerChoice == "examine room" or playerChoice == "look around" or playerChoice == "look at room":
         coreGameLoop(roomName, True, False)
-    #go in directions
-    #elif "north" in playerChoice or "east" in playerChoice or "south" in playerChoice or "west" in playerChoice:
+
+    #trap/reveal checks
+    elif playerChoice == "examine wall":
+        if roomName == "corridor2":
+            global perceptionCheck
+            perceptionCheck = True #percept check succeeded!
+            print objectDescription["brickOutcropping"]
+        else:
+            print "Smooth, ancient stone. The uniformity hurts your eyes if you look around long enough. It's all very disorienting, to be honest."
+        coreGameLoop(roomName, False, False)
+
+    elif playerChoice == "examine door":
+        if roomName == "startRoom":
+            global perceptionCheck
+            perceptionCheck = True #percept check succeeded!
+            print objectDescription["suspiciousDoor"]
+        else:
+            print "A door, like any other in this dungeon. Dusty, ancient, thick wood."
+        coreGameLoop(roomName, False, False)
+    elif playerChoice == "examine tile" or playerChoice == "examine tiles" or playerChoice == "examine floor":
+        if roomName == "corridor1":
+            global perceptionCheck
+            perceptionCheck = True
+            print objectDescription["suspiciousTile"]
+        else:
+            print "tilez. Floorz. Hur dur."
+        coreGameLoop(roomName, False, False)
+
+    #player wants to examine something; the general case
+    elif playerChoice[0:playerChoice.find(" ")] == "examine":
+        subject = playerChoice[playerChoice.find(" "):]
+        subject = subject.lstrip()#remove trailing whitespace
+        #print "***DEBUG : registered general case examine. Subject was : %s" % subject
+        #this is a test :
+        objectToBeExamined = mapSubjectToGameObject(subject, roomName)#map subject to a gameobject (things in objectDescription dictionary)
+        if objectToBeExamined == "NaO":
+            #error condition, subject isnt a valid gameObject
+            print "No idea what that is, or if it can even be examined."
+        else:
+            print objectDescription[objectToBeExamined] #couldve just combined these two lines, but splitting for code readability
+        coreGameLoop(roomName, False, False)
+
+    
+
+    #combat handling
+    elif "fight" in playerChoice or "attack" in playerChoice or "hit" in playerChoice:
+        subject = playerChoice[playerChoice.find(" "):]
+        subject = subject.lstrip()#remove trailing whitespace
+
+        if roomName in roomHasMonsters and isMonster(subject) == True:
+            if roomName == "trapRoom" and (subject == "skeleton" or subject == "skeletons"):
+                die("You swing your sword at the first skeleton in your way, dismantling it to pieces. As you turn around to face the others, triumphant, the slain skeleton rises up behind you. Grinning their death stare, they run you through with their flechettes.")
+            elif roomName == "corridor5" and (subject == "zombie"):
+                print("""
+                        You hack at the slow moving dread zombie, lopping off its arms, a leg, and finally its head to make it stop moving. 
+                        Wiping a sweat from your brow, you half expect it to rise up...
+                        ...but it stays dead. 
+                        Phew.
+                    """)
+                coreGameLoop(roomName, False, False)
+            elif roomName == "treasureRoom" and (subject == "guardian" or subject == "boss"):
+                die("""
+                    The guardian laughs at your pathetic attacks as they bounce off its armor.
+                    One swing of its massive zweihander is all it takes to put an end to your adventure,
+                    as lying on the bloody floor, all thoughts disappear, and you can only vaguely wonder why you are looking at your lower body, twitching legs and all, lying halfway across the room.
+                    """
+                    )
+        else: #player in a room that doesnt have monsters, or subject isnt a monster      
+                print "I'm not sure what that is, nor that it can be attacked."
+                print "Clearly, this is not the way to go."
+                coreGameLoop(roomName, False, False)
+
+
+    #finally, handle movement in compass directions
     elif playerChoice in directionsList:
         goTo = goToRoom(roomName, playerChoice)
+
+        
+
         if goTo == "NaD":
             print "You cannot go in that direction."
             coreGameLoop(roomName, True, False)
         else:
             #do perceptionCheck etc. processing here:
-            #perceptionCheck blabla
-            coreGameLoop(goTo, True, False)
+            if perceptionCheck == False and roomName == "startRoom" and goTo == "entranceCorridor":
+                die("A rigged trap door blows up in your face.")
+            else:
+                global perceptionCheck
+                perceptionCheck = False
+                coreGameLoop(goTo, True, False)
         
     #could not parse player's intent
     else:
