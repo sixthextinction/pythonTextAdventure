@@ -421,37 +421,45 @@ def coreGameLoop(roomName, includeDescription, treasureObtained):
     #--------------------------------------------------------------------------------------------------------------
     #trap/reveal checks
     elif playerChoice == "examine wall":
-        if roomName == "corridor2":
+        if roomName == "corridor2" and "brickOutcropping" not in discoveredSecrets: #extra condition prevents multiple entries in bpth discoveredSecrets and roomExits[roomname]
             print objectDescription["brickOutcropping"]
             discoveredSecrets.append("brickOutcropping")
             roomExits[roomName].append("west")
-        elif roomName == "deadEndRoom": 
+        elif roomName == "corridor2" and "brickOutcropping" in discoveredSecrets:
+            print "You've already discovered the secret tunnel here. In hindsight, a dilapidated wall in a dungeon of otherwise impeccable masonry obviously merited further look."
+        elif roomName == "deadEndRoom" and "deadEndSouthWall" not in discoveredSecrets: 
             print objectDescription["deadEndSouthWall"]
             discoveredSecrets.append("deadEndSouthWall")
             roomExits[roomName].append("south")
+        elif roomName == "deadEndRoom" and "deadEndSouthWall" in discoveredSecrets:
+            print "You've already discovered the prop wall here. That draft coming through was an astute observation, given the circumstances, if you do say so yourself."
         else:
             print "Smooth, ancient stone. The uniformity hurts your eyes if you look around long enough. It's all very disorienting, to be honest."
         coreGameLoop(roomName, False, False)
 
     elif playerChoice == "examine door" or playerChoice == "look at door":
-        if roomName == "startRoom" or roomName == "entranceCorridor": #hmm. reconsider entranceCorridor needing only "examine door" to disarm trap from other side
+        if (roomName == "startRoom" or roomName == "entranceCorridor") and "suspiciousDoor" not in disabledThreats: #hmm. reconsider entranceCorridor needing only "examine door" to disarm trap from other side
             print objectDescription["suspiciousDoor"]
             disabledThreats.append("suspiciousDoor") #add rigged door to disabled threats list
+        elif (roomName == "startRoom" or roomName == "entranceCorridor") and "suspiciousDoor" in disabledThreats:
+            print "You've already disabled the rigged door here. You shiver involuntarily knowing what manner of horrible death awaited you if you hadn't."
         else:
             print "A door, like any other in this dungeon. Dusty, ancient, thick wood."
         coreGameLoop(roomName, False, False)
 
     elif playerChoice == "examine tile" or playerChoice == "examine tiles" or playerChoice == "examine floor":
-        if roomName == "corridor1":
+        if roomName == "corridor1" and "suspiciousTile" not in disabledThreats:
             print objectDescription["suspiciousTile"]
             disabledThreats.append("suspiciousTile") #add suspicious tile to disabled threats list
+        elif roomName == "corridor1" and "suspiciousTile" in disabledThreats:
+            print "You've already skipped over the loose tile here. What awaited you down there if you hadn't? Lethal spikes? Bottomless pit? A pet monstrosity's lair? Who knows."
         else:
             print "The same smooth stone everywhere, layer of dust throughout."
         coreGameLoop(roomName, False, False)
 
     #--------------------------------------------------------------------------------------------------------------
     #player wants to examine something; the general case
-    elif playerChoice[0:playerChoice.find(" ")] == "examine":
+    elif playerChoice[0:playerChoice.find(" ")] == "examine": #add "look at" parsing
         subject = playerChoice[playerChoice.find(" "):]
         subject = subject.lstrip()#remove trailing whitespace
         objectToBeExamined = translateSubjectToGameObject(subject, roomName)#map subject to a gameobject (things in objectDescription dictionary)
@@ -473,7 +481,7 @@ def coreGameLoop(roomName, includeDescription, treasureObtained):
         subject = playerChoice[playerChoice.find(" "):]
         subject = subject.lstrip()#remove trailing whitespace
 
-        if roomName in roomHasMonsters and isMonster(subject) == True:
+        if roomName in roomHasMonsters and isMonster(subject) == True and subject not in disabledThreats:
             if roomName == "trapRoom" and (subject == "skeleton" or subject == "skeletons"):
                 die("""
                     You swing your sword at the first skeleton in your way, dismantling it to pieces. 
@@ -513,7 +521,7 @@ def coreGameLoop(roomName, includeDescription, treasureObtained):
         print "subject : %s"  % subject
         gameObject = translateSubjectToGameObject(subject, roomName)# if subject is an actual game object
 
-        if gameObject in gettableObjectsList and gameObject != "NaO":#the NaO check is useless, but needed for elif/else print statements' distinction
+        if gameObject in gettableObjectsList and gameObject != "NaO" and gameObject not in playerInventory:#the NaO check is useless, but needed for elif/else print statements' distinction
             playerInventory.append(gameObject)
             print "You pick the %s up." % subject
         elif gameObject not in gettableObjectsList and gameObject != "NaO":
@@ -530,10 +538,10 @@ def coreGameLoop(roomName, includeDescription, treasureObtained):
         #two steps to get there...
         tempString = playerChoice[playerChoice.find(" "):].lstrip()
         subject1 = tempString[:tempString.find(" ")] 
-        print "DEBUG : subject1 = %s" % subject1
+        #print "DEBUG : subject1 = %s" % subject1
         #get subject2
         subject2 = playerChoice[playerChoice.rfind(" "):].lstrip() #range = last occurrence of a space to end of string
-        print "DEBUG : subject2 = %s" % subject2
+        #print "DEBUG : subject2 = %s" % subject2
 
         #subject1 should be in inventory, and subject2 a valid gameobject in same room as player 
         if (subject1 in playerInventory) and (translateSubjectToGameObject(subject2,roomName) != "NaO"):
@@ -564,10 +572,10 @@ def coreGameLoop(roomName, includeDescription, treasureObtained):
             print "You cannot go in that direction."
             coreGameLoop(roomName, True, False)
         elif goTo == "exitRoom":
-            #print "DEBUG : Checking if you have exitKey... % s" % "key" in playerInventory
+            #check if player has exitKey in inventory
             if "exitKey" in playerInventory:
                 #print some description of your freedom
-                print objectDescription["freedom"]
+                print objectDescription["freedom"]#lol.
                 #gameEndScreen
                 showFinalScore()
             else:
@@ -606,9 +614,10 @@ def coreGameLoop(roomName, includeDescription, treasureObtained):
     elif playerChoice == "cheat":
         print "Type go roomName to go there, add objectName to add it to inventory, 0 to restart coreGameLoop"
         cheatCode = raw_input(">#> ")
-        if "go" in cheatCode and cheatCode[cheatCode.find(" "):].lstrip() in objectDescription:
-            coreGameLoop(cheatCode[cheatCode.find(" "):].lstrip(), True, False)
-        elif "add" in cheatCode and cheatCode[cheatCode.find(" "):].lstrip() in objectDescription:
+        cheatCodeSubject = cheatCode[cheatCode.find(" "):].lstrip()
+        if "go" in cheatCode and cheatCodeSubject in objectDescription:
+            coreGameLoop(cheatCodeSubject, True, False)
+        elif "add" in cheatCode and cheatCodeSubject in objectDescription and cheatCodeSubject not in playerInventory:
             playerInventory.append(cheatCode[cheatCode.find(" "):].lstrip())
         else:
             coreGameLoop(roomName, True, False)
