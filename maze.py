@@ -61,6 +61,7 @@ objectDescription = {
 
                                             Whatever it is, it lies to the east. 
                                             """,
+                        #this room needs an alternate description post-zombie killing.
                         "corridor5" :       """
                                             The shambling corpse walks towards you.
 
@@ -73,6 +74,7 @@ objectDescription = {
 
                                             Your ticket out of here is to the west, though your attention is drawn to another diagonal tunnel to the northwest. An evil permeates that tunnel. 
                                             """,
+                        #this room needs an alternate description post-guardian killing.
                         "treasureRoom" :    """
                                             The Guardian stands here in this bloody room, among bones and discarded gear of heroes past, a dozen arms tall, metal plates intertwining with chains, dirty leather hood hiding his grotesque visage.
                                             He has been waiting for you. He grins, bare, bloody teeth and all, as he picks up his greatsword. 
@@ -95,8 +97,15 @@ objectDescription = {
 
                                             Or is it nearly as grim? There's a draft coming from the south. From...solid wall?
                                             """,
+                        # "exitRoom"    :     """
+                        #                     Daylight! You ascend the small flight of stairs, push aside an ancient, overgrowth-laden gate, and emerge into the overworld, not unscathed, but wiser and more experienced for your troubles.
+                        #                     """,
                     
 #now objects :
+                        "freedom"           :   """
+                                            Daylight! You ascend the small flight of stairs, push aside an ancient, overgrowth-laden gate, 
+                                            and emerge into the overworld, not unscathed, 
+                                            but wiser and more experienced for your troubles.""",#oh, the humour in having freedom portrayed as an object.
 
                         "suspiciousDoor"    :  """
                                             You peer at the door, and notice nothing different. You start to give it a gentle push...
@@ -108,6 +117,7 @@ objectDescription = {
                         "treasureChest"     :   "Just your everyday large wood-and-metal chest. You can unlock this.",
                         "suspiciousTile"    :   "Your perceptive nature pays off. The unnatural tile architecture hides a pressure trap. You disarm it. Close shave.",
                         "brickOutcropping"  :   "You run your hand across the outcropping, and discover one of the bricks is loose! Pulling on it reveals a secret passage to the west!",
+                        "deadEndSouthWall"  :   "You push the south wall, and it falls over almost comically. Huh. Being that perceptive paid off, looks like. You can step through into a new corridor to the south.",
                         "corridor3Gate"     :   "Just your regular everyday metal gate. Which is also, unfortunately, of the locked variety. The lock has long since eroded away, to boot. Drat.",
                         "zombie"            :   "Ghastly un-life stares back at you through maggot infested eyesockets. A mass of rotten flesh, loose coils of intestine, and jagged teeth, shambling towards you, inch by fatal inch. ",
                         "exitGate"          :   "Large, barred gates. Comically oversized chains and a lock fasten it securely in place. It's locked, needless to say. You need a key to get out of here.",
@@ -116,10 +126,14 @@ objectDescription = {
                         "skeleton"          :   "A reanimated soldier, moldy bones held together by some unholy magic. It carries a curved sword, and the red misty glow in its otherwise empty orbits, hungers for your blood."
                     }
 
+gettableObjectsList = ["exitKey"] #for now.
+
 directionsList = [ "north", "northwest", "west", "southwest", "south", "southeast", "east", "northeast" ]
 
 monstersList   =    [ "skeleton", "zombie", "guardian", "boss" ]
 
+
+#maps subjects in player commands to an internal gameObject name
 subjectToGameObjectMap =    { #only covers mappings that can have a 1:1 resolution. "room" can't, as it can have multiple versions depending on roomName. Resolve that elsewhere.
                             "chest"         :   "treasureChest",
                             "treasure"      :   "treasureChest",
@@ -131,6 +145,8 @@ subjectToGameObjectMap =    { #only covers mappings that can have a 1:1 resoluti
                             "key"           :   "exitKey",
                             "skeleton"      :   "skeleton"#redundant?
                             }
+
+#maps objects to rooms they're in, 1 to 1 only
 subjectToRoomMap =  {
                         "skeleton"  :   "trapRoom",
                         "zombie"    :   "corridor5",
@@ -138,16 +154,33 @@ subjectToRoomMap =  {
                         "guardian"  :   "treasureRoom",
                         "key"       :   "treasureRoom"
                     }
-playerHP = 100  #HP
-playerGP = 0    #Gold
 
-#treasureObtained = False
+#list of exits out of each room. KEY is the current roomName, VALUE list's last item is the direction to go back to the room you came from (unless there isn't any as in the case of startRoom or trapRoom).
+roomExits = {
+                "startRoom"         :       ["northwest", "east"],
+                "trapRoom"          :       ["northeast"],
+                "deadEndRoom"       :       ["northwest"],                 #make south exit visible only after examining wall(perception check)
+                "entranceCorridor"  :       ["south", "northwest", "north"],    #northwest is the rigged door; still needs percept check
+                "corridor1"         :       ["west", "east"],
+                "corridor2"         :       ["northwest", "southeast"],     #west exit only after a percept check; the western exit through wall is hidden
+                "corridor3"         :       ["northeast"],                           #no exits out of this one, rusty metal gate barred
+                "corridor4"         :       ["east", "north"],                      #north exit is the same secret tunnel that takes players to corridor2
+                "corridor5"         :       ["south", "north"],
+                "corridor6"         :       ["west", "northwest", "east"],
+                "treasureRoom"      :       ["southeast"]
+            }
+
+playerHP = 100  #HP, unused now.
+playerGP = 0    #Gold, show in final score
+playerInventory = [""] #empty at the start, append stuff as things are picked up.
+enemyWasKilledHere = [""] #empty at first, append roomNames as enemies are killed in those rooms
+disabledThreats = [""]  #move threats (traps/enemies) here as they are removed from game world
 
 perceptionCheck = False #default, resets for each room
 prompt = "What do you do? > "
 ########################################################################################
 def goToRoom(origin, direction):
-    #simple implementation for now...
+    #Naiive implementation for now. Use the roomExits list later for an improved one, maybe.
     #--------------------------------------------
     if (origin == "startRoom"):
         if(direction == "northwest"):
@@ -166,18 +199,26 @@ def goToRoom(origin, direction):
     elif (origin == "deadEndRoom"):
         if(direction == "south"):
             return "entranceCorridor"
+        elif (direction == "northwest"):
+            return "trapRoom"
         else:
             return "NaD"
     #--------------------------------------------
     elif (origin == "entranceCorridor"):
         if (direction == "south"):
             return "corridor1"
+        elif (direction == "northwest"):
+            return "startRoom"
+        elif (direction == "north"):
+            return "deadEndRoom"
         else:
             return "NaD"
     #--------------------------------------------
     elif (origin == "corridor1"):
         if (direction == "west"):
             return "corridor2"
+        elif (direction == "east"):
+            return "entranceCorridor"
         else:
             return "NaD"
     #--------------------------------------------
@@ -186,6 +227,8 @@ def goToRoom(origin, direction):
             return "corridor3"
         elif (direction == "west"):
             return "corridor4"
+        elif (direction == "southeast"):
+            return "corridor1"
         else:
             return "NaD"
     #--------------------------------------------
@@ -198,18 +241,26 @@ def goToRoom(origin, direction):
     elif (origin == "corridor4"):
         if (direction == "east"):
             return "corridor5"
+        elif (direction == "north"):
+            return "corridor2"
         else:
             return "NaD"
     #--------------------------------------------
     elif (origin == "corridor5"):
         if (direction == "south"):
             return "corridor6"
+        elif direction == "north":
+            return "corridor5"
         else:
             return "NaD"
     #--------------------------------------------
     elif (origin == "corridor6"):
         if (direction == "northwest"):
             return "treasureRoom"
+        elif (direction == "west"):
+            return "exitRoom"
+        elif direction == "east":
+            return "corridor5"
         else:
             return "NaD"
     #--------------------------------------------
@@ -224,13 +275,42 @@ def goToRoom(origin, direction):
 ########################################################################################
 def die(why):
     print " %s Well done!" % why
+    showFinalScore()
     sys.exit(0) #this and "import sys" are temporary workarounds to "exit takes no arguments". What's the real cause?
 ########################################################################################
 def dangerAlert():
     print "Careful. Something sinister lurks here...\n"
 ########################################################################################
 def getAltDescription(roomName):
-    return "Alternate %r description here." % roomName
+    #here's the general case
+    # if roomName in roomHasMonsters:
+    #     return objectDescription[roomName]
+    # else
+    #     return "<alt description>"
+
+    # if roomName == "corridor5":
+    #     if roomName in roomHasMonsters:                                     #the zombie is alive still
+    #         return objectDescription[roomName]                              #the same description
+    #     else:                                                               #zombie killed
+    #         return "The quite dead dread zombie lies on the floor. There's a low ceilinged hallway to the south. "         #alternate description, zombie removed   
+
+    # elif roomName == "treasureRoom":
+    #     if roomName in roomHasMonsters:
+    #         return objectDescription[roomName]
+    #     else:
+    #         return "<alternate description of a boss-less room. Mention the key.>"
+
+    #rooms with enemies
+    if roomName == "corridor5":
+        return "The quite dead zombie lies on the floor. There's a low ceilinged hallway to the south. " 
+    elif roomName == "treasureRoom":
+        return "<alt description of a bossless room. mention the key too, unless it was taken>"
+
+    #rooms with percept checks :
+    #todo
+
+    else:
+        return "<alternate description of %s>" % roomName
 ########################################################################################
 def isMonster(subject):
     if subject in monstersList:
@@ -239,35 +319,13 @@ def isMonster(subject):
         return False
 ########################################################################################
 def mapSubjectToGameObject(subject, roomName):
-    # print "*** DEBUG : subject %s in subjectToGameObjectMap? : %r" % (subject, subject in subjectToGameObjectMap)
-    # print "*** DEBUG : Again, manually this time. ""guardian"" in subjectToGameObjectMap? : %r" % ("guardian" in subjectToGameObjectMap)
-    # print "*** DEBUG : Wtf? Ok. Try this : subjectToGameObjectMap[guardian] : %s" % (subjectToGameObjectMap["guardian"])
-    # print "*** DEBUG : Alright, getting somewhere. subject == <space>guardian? %r : " % (subject == " guardian")
-    # print "*** DEBUG : Almost there. subject == guardian? %r : " % (subject == "guardian")
-
-    #there's the problem. A rogue whitespace just before the subject string.
-    #lets fix that :
-    #subject = subject.lstrip() #remove leading whitespaces (empty array passed)
-
-    #prevent examining gameObjects not in the room the player is currently in.
-    # Do this by maintaining an associative array. 
-    #ex. subjectToRoomMap = { "skeleton" : "trapRoom", "zombie" : "corridor5"} and so on.
-    #only if subjectToRoomMap["skeleton"] == roomName, return subjectToGameObjectMap[subject]
-
+    #if subject is a game object, and that gameobject is present in current room,
     if subject in subjectToGameObjectMap and subjectToRoomMap[subject] == roomName:
-            # print "*** DEBUG : subject : %s" % subject
-            # print "*** DEBUG : roomName : %s" % roomName
-            # print "*** DEBUG : mapSubjectToGameObject() returning : %s" % subjectToGameObjectMap[subject]
             return subjectToGameObjectMap[subject]
-    elif subject == "room":
-        # print "*** DEBUG : subject : %s" % subject
-        # print "*** DEBUG : roomName : %s" % roomName
-        # print "*** DEBUG : mapSubjectToGameObject() returning : %s" % objectDescription[roomName]
+    #for "examine room" Pretty unnecessary right now, as that special case is handled in coreGameLoop 
+    elif subject == "room": 
         return objectDescription[roomName]
     else:
-        # print "*** DEBUG : subject : %s" % subject
-        # print "*** DEBUG : roomName : %s" % roomName
-        # print "*** DEBUG : mapSubjectToGameObject() returning : NaO" 
         return "NaO" #not an examinable subject. An errorcode, basically, like NaD.
 ########################################################################################
 def coreGameLoop(roomName, includeDescription, treasureObtained):
@@ -276,36 +334,43 @@ def coreGameLoop(roomName, includeDescription, treasureObtained):
     print "You are in : %s" % roomName
 
     if (includeDescription):
-        if (perceptionCheck == True):
+        #if secret was discovered, or enemy was killed here (leaving a corpse), we need alternate descriptions of the room to reflect those objects still being present
+        if (perceptionCheck == True) or (roomName in enemyWasKilledHere): #second one'ss a list. Combine these into something like "roomWasModified"?
+            #this function always returns the alt description for a given room (passed as argument)
+            #but what if this room has a discoverable secret, AND an enemy, or more of each?
+            #secrets not yet discovered/enemies not yet killed cannot be shown prematurely to the player
             print getAltDescription(roomName)
         else:
             print objectDescription[roomName]
-    if (roomName in roomHasTreasure) and (treasureObtained == False):
+
+    if (roomName in roomHasTreasure): 
         treasurePresent = True
+        
+    if treasurePresent == True:
         print "There's a treasure chest here."
+
+    #list all exits out of this room
+    print "Exits out of here : "
+    for exit in roomExits[roomName]:
+        print "\t"+exit
 
     playerChoice = raw_input(prompt)
 
-    #SUGGESTION : More efficient action processing system 
-    #   action  = playerChoice[0:playerChoice.find(" ")]    //substring until a space 
-    #   subject = playerChoice[playerChoice.find(" "):]     //substring from space til end for the object being referred to
-    #   if action in list_of_valid_actions:                //check if its a valid action
-    #       send off object for processing
-    # ^^^ maybe like so?
 
     #player wants to do something with the treasure chest :
+    #if treasure obrtained, remove room from roomHastreasure list
     if ("chest" in playerChoice or "treasure" in playerChoice) and treasurePresent == True:
         #player wants to examine it :
         if "examine" in playerChoice or "look at" in playerChoice:
             print objectDescription["treasureChest"]
             coreGameLoop(roomName, False, False)
-        #player wants to unlock it :
-        elif "unlock" in playerChoice:
-            #treasureObtained = True
+        #player wants to open/unlock it :
+        elif "unlock" in playerChoice or "open" in playerChoice:
             goldObtained = roomHasTreasure[roomName]
             print "You obtain %d gold!" % goldObtained
             global playerGP
             playerGP += goldObtained
+            del(roomHasTreasure[roomName]) #remove room from roomhasTreasure list
             coreGameLoop(roomName, False, True)
         #could not parse player's intent :
         else:
@@ -322,33 +387,35 @@ def coreGameLoop(roomName, includeDescription, treasureObtained):
             global perceptionCheck
             perceptionCheck = True #percept check succeeded!
             print objectDescription["brickOutcropping"]
+            roomExits[roomName].append("west")
+        elif roomName == "deadEndRoom":
+            global perceptionCheck
+            perceptionCheck = True
+            print objectDescription["deadEndSouthWall"]
+            roomExits[roomName].append("south")
         else:
             print "Smooth, ancient stone. The uniformity hurts your eyes if you look around long enough. It's all very disorienting, to be honest."
         coreGameLoop(roomName, False, False)
 
     elif playerChoice == "examine door":
-        if roomName == "startRoom":
-            global perceptionCheck
-            perceptionCheck = True #percept check succeeded!
+        if roomName == "startRoom" or roomName == "entranceCorridor": #hmm. reconsider entranceCorridor needing only "examine door" to disarm trap from other side
             print objectDescription["suspiciousDoor"]
+            disabledThreats.append("suspiciousDoor") #add rigged door to disabled threats list
         else:
             print "A door, like any other in this dungeon. Dusty, ancient, thick wood."
         coreGameLoop(roomName, False, False)
     elif playerChoice == "examine tile" or playerChoice == "examine tiles" or playerChoice == "examine floor":
         if roomName == "corridor1":
-            global perceptionCheck
-            perceptionCheck = True
             print objectDescription["suspiciousTile"]
+            disabledThreats.append("suspiciousTile") #add suspicious tile to disabled threats list
         else:
-            print "tilez. Floorz. Hur dur."
+            print "The same smooth stone everywhere, layer of dust throughout."
         coreGameLoop(roomName, False, False)
 
     #player wants to examine something; the general case
     elif playerChoice[0:playerChoice.find(" ")] == "examine":
         subject = playerChoice[playerChoice.find(" "):]
         subject = subject.lstrip()#remove trailing whitespace
-        #print "***DEBUG : registered general case examine. Subject was : %s" % subject
-        #this is a test :
         objectToBeExamined = mapSubjectToGameObject(subject, roomName)#map subject to a gameobject (things in objectDescription dictionary)
         if objectToBeExamined == "NaO":
             #error condition, subject isnt a valid gameObject
@@ -360,13 +427,20 @@ def coreGameLoop(roomName, includeDescription, treasureObtained):
     
 
     #combat handling
-    elif "fight" in playerChoice or "attack" in playerChoice or "hit" in playerChoice:
+    # If enemy killed, append roomName to enemyWasKilledHere list
+    # Note: simpler to have the same approach as treasure chests i.e. del(), but not if more enemies are added.
+
+    elif "fight" in playerChoice or "attack" in playerChoice or "hit" in playerChoice or "kill" in playerChoice:
         subject = playerChoice[playerChoice.find(" "):]
         subject = subject.lstrip()#remove trailing whitespace
 
         if roomName in roomHasMonsters and isMonster(subject) == True:
             if roomName == "trapRoom" and (subject == "skeleton" or subject == "skeletons"):
-                die("You swing your sword at the first skeleton in your way, dismantling it to pieces. As you turn around to face the others, triumphant, the slain skeleton rises up behind you. Grinning their death stare, they run you through with their flechettes.")
+                die("""
+                    You swing your sword at the first skeleton in your way, dismantling it to pieces. 
+                    As you turn around to face the others, triumphant, the slain skeleton rises up behind you. 
+                    Grinning their death stare, they run you through with their swords.
+                    """)
             elif roomName == "corridor5" and (subject == "zombie"):
                 print("""
                         You hack at the slow moving dread zombie, lopping off its arms, a leg, and finally its head to make it stop moving. 
@@ -374,6 +448,10 @@ def coreGameLoop(roomName, includeDescription, treasureObtained):
                         ...but it stays dead. 
                         Phew.
                     """)
+                enemyWasKilledHere.append(roomName)# append this room's name to enemyWasKilledHere list. Needed for alt descriptions of rooms post-monster purge
+
+                disabledThreats.append("zombie")#append zombie to disabled threats list for...idk. Maybe to implement "block exit until enemy killed" idea?
+
                 coreGameLoop(roomName, False, False)
             elif roomName == "treasureRoom" and (subject == "guardian" or subject == "boss"):
                 die("""
@@ -382,38 +460,102 @@ def coreGameLoop(roomName, includeDescription, treasureObtained):
                     as lying on the bloody floor, all thoughts disappear, and you can only vaguely wonder why you are looking at your lower body, twitching legs and all, lying halfway across the room.
                     """
                     )
+                #guardian boss cant be killed by conventional means.
         else: #player in a room that doesnt have monsters, or subject isnt a monster      
                 print "I'm not sure what that is, nor that it can be attacked."
                 print "Clearly, this is not the way to go."
                 coreGameLoop(roomName, False, False)
 
+    #pick things up
+    elif "get" in playerChoice or "pick up" in playerChoice:
+        subject = playerChoice[playerChoice.find(" "):]
+        subject = subject.lstrip()#remove leading whitespace
+        print "subject : %s"  % subject
+        gameObject = mapSubjectToGameObject(subject, roomName)# if subject is an actual game object
+
+        if gameObject in gettableObjectsList and gameObject != "NaO":
+            playerInventory.append(gameObject)
+            print "You pick the %s up." % subject
+        elif gameObject not in gettableObjectsList and gameObject != "NaO":
+            print "The %s is too heavy to pick up and carry around." % gameObject
+        else:
+            print "I don't know what that is, or if it can even be picked up."
+
+        coreGameLoop(roomName, False, False)
 
     #finally, handle movement in compass directions
     elif playerChoice in directionsList:
-        goTo = goToRoom(roomName, playerChoice)
 
-        
+        #get destination, based on the room player is currently in + direction entered
+        goTo = goToRoom(roomName, playerChoice)
 
         if goTo == "NaD":
             print "You cannot go in that direction."
             coreGameLoop(roomName, True, False)
-        else:
-            #do perceptionCheck etc. processing here:
-            if perceptionCheck == False and roomName == "startRoom" and goTo == "entranceCorridor":
-                die("A rigged trap door blows up in your face.")
+        elif goTo == "exitRoom":
+            #print "DEBUG : Checking if you have exitKey... % s" % "key" in playerInventory
+            if "exitKey" in playerInventory:
+                #print some description of your freedom
+                print objectDescription["freedom"]
+                #gameEndScreen
+                showFinalScore()
             else:
+                print "You don't have the key to the exit gate. You do have a bad feeling about its resting place, though..."
+                coreGameLoop(roomName, False, False)
+        else:
+            #all processing that relies on percept checks/disabled threats goes here :
+
+            #the rigged door
+            if "suspiciousDoor" not in disabledThreats and (roomName == "startRoom" or roomName == "entranceCorridor") and (goTo == "entranceCorridor" or goTo == "startRoom"):#both ways
+                die("A rigged trap door blows up in your face.")
+            #the trap tile
+            elif "suspiciousTile" not in disabledThreats and (roomName == "corridor1") and (goTo == "corridor2"):# no need for both ways as there isnt a way to go to corridor2 without disabling this trap
+                die("You fall to your doom, a suspicious tile falling away into the abyss as you step on it. You curse your lack of perceptiveness.")
+            #the brick outcropping hiding a west exit
+            elif perceptionCheck == False and roomName == "corridor2" and goTo == "corridor4":
+                print "There is no west exit here. As far as you can tell without a close examination, there's a pretty solid brick wall in the way."
+                coreGameLoop(roomName, False, False)
+            #the wall in deadEndRoom hiding an exit to the south
+            elif perceptionCheck == False and roomName == "deadEndRoom" and goTo == "entranceCorridor":
+                print "There is exit that way. As far as you can tell, this room is a dead end. A wall blocks the way south."
+                coreGameLoop(roomName, False, False)
+            #zombie blocking way
+            elif "zombie" not in disabledThreats and roomName == "corridor5" and goTo == "corridor6":
+                print "The zombie is blocking your way. You have to take him out before going further!"
+                coreGameLoop(roomName, False, False)
+            #guardian preventing you going back out
+            #elif "guardianBoss" not in disabledThreats and roomName == "treasureRoom":
+            # print "the guardian wont let you leave! <more>"       <-- placeholder
+            #todo
+            else:
+                #set perceptionCheck back to default, ready for the next time
                 global perceptionCheck
                 perceptionCheck = False
                 coreGameLoop(goTo, True, False)
-        
-    #could not parse player's intent
+    
+    #cheatCodes, including: roomskip for debug/test, <tba>
+    elif playerChoice == "cheat":
+        print "Type roomName to go there, <more options>, 0 to restart coreGameLoop"
+        cheatCode = raw_input(">#> ")
+        if cheatCode in objectDescription:
+            coreGameLoop(cheatCode, True, False)
+        else:
+            coreGameLoop(roomName, True, False)
+    #base case; could not parse player's intent
     else:
         print "I don't understand that."
         coreGameLoop(roomName, False, False)    
 
 ########################################################################################
 def showFinalScore(): #scoresheet
-    print ""
+    print "##############################################"
+    print "CONGRATULATIONS! You've beaten the game!"
+    print "Your final stats were..."
+    print "Total gold               : %d" % playerGP
+    #print "HP left                  : %d" % playerHP
+    #add more when implemented: enemies slain, enemies escaped from, was guardian killed? etc.
+    print "Thank you for playing!"
+    print "##############################################"
 ########################################################################################   
 coreGameLoop("startRoom", True, False) #start it off!
 ########################################################################################
